@@ -11,15 +11,15 @@ namespace IdentityAppWithMVC.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly SignInManager<AppUser> _signInManager;
         private readonly ISendGridEmail _sendGridEmail;
 
-        public AccountController(UserManager<IdentityUser> userManager
-            , SignInManager<IdentityUser> signInManager
-            , ISendGridEmail sendGridEmail
-            , RoleManager<IdentityRole> roleManager)
+        public AccountController(UserManager<AppUser> userManager,
+            SignInManager<AppUser> signInManager,
+            ISendGridEmail sendGridEmail,
+            RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -32,7 +32,7 @@ namespace IdentityAppWithMVC.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ExternalLoginConfirmation(ExternalLoginViewModel model, string? returnurl = null)
         {
-            returnurl ??= Url.Content("~/");
+            returnurl = returnurl ?? Url.Content("~/");
 
             if (ModelState.IsValid)
             {
@@ -46,7 +46,7 @@ namespace IdentityAppWithMVC.Controllers
                 var result = await _userManager.CreateAsync(user);
                 if (result.Succeeded)
                 {
-                    await _userManager.AddToRoleAsync(user, "User");
+                    await _userManager.AddToRoleAsync(user, "Pokemon");
                     result = await _userManager.AddLoginAsync(user, info);
                     if (result.Succeeded)
                     {
@@ -98,14 +98,13 @@ namespace IdentityAppWithMVC.Controllers
         [HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
-        public IActionResult ExternalLogin(string provider, string? returnurl = null)
+        public IActionResult ExternalLogin(string provider, string returnurl = null)
         {
             //request a redirect to the external login provider
             var redirecturl = Url.Action("ExternalLoginCallback", "Account", new { ReturnUrl = returnurl });
             var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirecturl);
             return Challenge(properties, provider);
         }
-
         public IActionResult Index()
         {
             return View();
@@ -114,9 +113,9 @@ namespace IdentityAppWithMVC.Controllers
         [HttpGet]
         public IActionResult Login(string? returnUrl = null)
         {
-            LoginViewModel vm = new LoginViewModel();
-            vm.ReturnUrl = returnUrl ?? Url.Content("~/");
-            return View(vm);
+            LoginViewModel loginViewModel = new LoginViewModel();
+            loginViewModel.ReturnUrl = returnUrl ?? Url.Content("~/");
+            return View(loginViewModel);
         }
 
         [HttpGet]
@@ -146,13 +145,7 @@ namespace IdentityAppWithMVC.Controllers
         }
 
         [HttpGet]
-        public IActionResult ForgotPasswordConfirmation()
-        {
-            return View();
-        }
-
-        [HttpGet]
-        public IActionResult ResetPassword(string? code = null)
+        public IActionResult ResetPassword(string code = null)
         {
             return code == null ? View("Error") : View();
         }
@@ -184,12 +177,7 @@ namespace IdentityAppWithMVC.Controllers
         {
             if (ModelState.IsValid)
             {
-                var result = await _signInManager.PasswordSignInAsync(
-                    loginViewModel.UserName
-                    , loginViewModel.Password
-                    , loginViewModel.RememberMe
-                    , lockoutOnFailure: true);
-
+                var result = await _signInManager.PasswordSignInAsync(loginViewModel.UserName, loginViewModel.Password, loginViewModel.RememberMe, lockoutOnFailure: true);
                 if (result.Succeeded)
                 {
                     return RedirectToAction("Index", "Home");
@@ -207,13 +195,6 @@ namespace IdentityAppWithMVC.Controllers
             return View(loginViewModel);
         }
 
-        [HttpGet]
-        public IActionResult ResetPasswordConfirmation()
-        {
-            return View();
-        }
-
-        [HttpGet]
         public async Task<IActionResult> Register(string? returnUrl = null)
         {
             if (!await _roleManager.RoleExistsAsync("Pokemon"))
@@ -262,15 +243,26 @@ namespace IdentityAppWithMVC.Controllers
                     await _signInManager.SignInAsync(user, isPersistent: false);
                     return LocalRedirect(returnUrl);
                 }
-                ModelState.AddModelError("Password", "User could not be created. Password is not unique enough");
+                ModelState.AddModelError("Password", "User could not be created. Password not unique enough");
             }
-
             return View(registerViewModel);
+        }
+
+        [HttpGet]
+        public IActionResult ForgotPasswordConfirmation()
+        {
+            return View();
+        }
+
+        [HttpGet]
+        public IActionResult ResetPasswordConfirmation()
+        {
+            return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> LogOff()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction("Index", "Home");
